@@ -125,7 +125,7 @@ router.post("/", requireAuth, upload.single("image"), async (req, res) => {
   if (req.file) {
     const ext = req.file.mimetype === "image/jpeg" ? "jpg" : "png";
     const filename = `post-${Date.now()}-${crypto.randomBytes(8).toString("hex")}.${ext}`;
-    image_url = await storeImage(req.file.buffer, filename);
+    image_url = await storeImage(req.file.buffer, filename, req.file.mimetype);
   }
 
   const [post] = await db

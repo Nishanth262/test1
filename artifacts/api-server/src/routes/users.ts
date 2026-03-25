@@ -111,7 +111,7 @@ router.post("/me/avatar", requireAuth, upload.single("avatar"), async (req, res)
 
   const ext = req.file.mimetype === "image/jpeg" ? "jpg" : "png";
   const filename = `avatar-${req.user!.userId}-${crypto.randomBytes(8).toString("hex")}.${ext}`;
-  const avatar_url = await storeImage(req.file.buffer, filename);
+  const avatar_url = await storeImage(req.file.buffer, filename, req.file.mimetype);
 
   await db
     .update(usersTable)

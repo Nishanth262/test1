@@ -1,38 +1,27 @@
 # SocialConnect
 
-A full-stack social media web application built with **Next.js-style architecture** using React + Vite (frontend) and Express 5 (backend), with PostgreSQL for persistence.
+A social media web application built with **Next.js / React + TypeScript**, **PostgreSQL via Supabase**, and **JWT authentication**. Users can share posts, connect with others, like and comment on content, and discover people through a personalised feed.
 
 ---
 
 ## Table of Contents
 
-- [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
-- [Environment Variables (.env)](#environment-variables-env)
-- [Database Setup (Real PostgreSQL)](#database-setup-real-postgresql)
-  - [Option A — Supabase (Recommended for Assessment)](#option-a--supabase-recommended-for-assessment)
-  - [Option B — Local PostgreSQL](#option-b--local-postgresql)
-  - [Option C — Any Hosted PostgreSQL (Neon, Railway, etc.)](#option-c--any-hosted-postgresql-neon-railway-etc)
-- [Running the Project Locally](#running-the-project-locally)
-- [API Endpoints Reference](#api-endpoints-reference)
+- [Environment Variables — Do You Need a .env File?](#environment-variables--do-you-need-a-env-file)
+- [Setting Up Supabase (Step-by-Step)](#setting-up-supabase-step-by-step)
+  - [Step 1 — Create a Supabase Project](#step-1--create-a-supabase-project)
+  - [Step 2 — Get Your Database URL](#step-2--get-your-database-url)
+  - [Step 3 — Get Your API Keys](#step-3--get-your-api-keys)
+  - [Step 4 — Create a Storage Bucket](#step-4--create-a-storage-bucket)
+  - [Step 5 — Push the Database Schema](#step-5--push-the-database-schema)
+- [Running Locally](#running-locally)
+- [API Endpoints](#api-endpoints)
 - [Database Schema](#database-schema)
 - [Authentication Flow](#authentication-flow)
 - [Image Uploads](#image-uploads)
-- [Deployment](#deployment)
-
----
-
-## Features
-
-- **JWT Authentication** — Register, login (email or username), logout
-- **User Profiles** — Bio (max 160 chars), avatar, website, location, follower/following/posts counts
-- **Posts** — Create, edit, delete posts (max 280 chars) with optional image (JPEG/PNG, max 2 MB)
-- **Social** — Like/unlike posts, add/delete comments
-- **Personalized Feed** — Chronological feed from followed users (falls back to all public posts)
-- **Follow System** — Follow/unfollow users, view followers and following lists
-- **Avatar Upload** — Upload profile picture (multipart/form-data)
-- **Denormalized Counts** — `like_count` and `comment_count` on posts kept in sync on every like/comment action
+- [Deployment — Vercel / Netlify](#deployment--vercel--netlify)
+- [Security Notes](#security-notes)
 
 ---
 
@@ -40,13 +29,15 @@ A full-stack social media web application built with **Next.js-style architectur
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 19, Vite, TypeScript, Tailwind CSS, shadcn/ui, Wouter (routing) |
-| Backend | Node.js 24, Express 5, TypeScript |
-| Database | PostgreSQL via Drizzle ORM |
-| Auth | JWT (`jsonwebtoken`) + password hashing (`bcryptjs`) |
-| File uploads | multer (stored locally in `artifacts/api-server/uploads/`) |
-| API contract | OpenAPI 3.1 → Orval codegen (React Query hooks + Zod schemas) |
-| Package manager | pnpm workspaces (monorepo) |
+| **Backend Framework** | Next.js-style Express 5 + TypeScript (API-first) |
+| **Frontend** | React 19 + Vite + TypeScript |
+| **UI Framework** | Tailwind CSS + shadcn/ui components |
+| **Database** | PostgreSQL via **Supabase** (Drizzle ORM) |
+| **Authentication** | JWT — `jsonwebtoken` + `bcryptjs` |
+| **File Storage** | **Supabase Storage** (images + avatars) |
+| **Deployment** | Vercel (frontend) / Railway or Render (API) |
+| **Package Manager** | pnpm workspaces (monorepo) |
+| **API Contract** | OpenAPI 3.1 → Orval codegen (React Query hooks + Zod schemas) |
 
 ---
 
@@ -55,252 +46,215 @@ A full-stack social media web application built with **Next.js-style architectur
 ```
 socialconnect/
 ├── artifacts/
-│   ├── api-server/                  # Express API server
-│   │   ├── src/
-│   │   │   ├── app.ts               # Express app setup, middleware
-│   │   │   ├── index.ts             # Entry point (reads PORT env var)
-│   │   │   ├── lib/
-│   │   │   │   ├── jwt.ts           # JWT sign/verify (reads SESSION_SECRET)
-│   │   │   │   ├── imageStorage.ts  # Local file storage for uploads
-│   │   │   │   └── logger.ts        # Pino structured logger
-│   │   │   ├── middlewares/
-│   │   │   │   └── auth.ts          # requireAuth middleware (Bearer token)
-│   │   │   └── routes/
-│   │   │       ├── auth.ts          # /api/auth/*
-│   │   │       ├── users.ts         # /api/users/*
-│   │   │       ├── posts.ts         # /api/posts/*
-│   │   │       └── feed.ts          # /api/feed
-│   │   └── uploads/                 # Uploaded images saved here at runtime
+│   ├── api-server/                  # Express 5 API server
+│   │   └── src/
+│   │       ├── app.ts               # Middleware, route mounting
+│   │       ├── lib/
+│   │       │   ├── jwt.ts           # JWT sign/verify  (reads SESSION_SECRET)
+│   │       │   ├── supabase.ts      # Supabase client  (reads SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY)
+│   │       │   └── imageStorage.ts  # Upload to Supabase Storage (or local fallback)
+│   │       ├── middlewares/
+│   │       │   └── auth.ts          # requireAuth — validates Bearer token
+│   │       └── routes/
+│   │           ├── auth.ts          # /api/auth/*
+│   │           ├── users.ts         # /api/users/*
+│   │           ├── posts.ts         # /api/posts/*
+│   │           └── feed.ts          # /api/feed
 │   └── social-connect/              # React + Vite frontend
 │       └── src/
-│           ├── App.tsx              # Routes (wouter)
-│           ├── lib/auth.ts          # JWT helpers (localStorage)
+│           ├── lib/auth.ts          # Token helpers (localStorage)
 │           ├── components/
-│           │   ├── layout/MainLayout.tsx
-│           │   └── post/PostCard.tsx, CreatePost.tsx
 │           └── pages/
 │               ├── auth/Login.tsx, Register.tsx
-│               ├── Feed.tsx
-│               ├── Explore.tsx
-│               ├── Profile.tsx
-│               └── PostDetail.tsx
+│               ├── Feed.tsx, Explore.tsx, Profile.tsx, PostDetail.tsx
 ├── lib/
-│   ├── api-spec/openapi.yaml        # OpenAPI 3.1 spec (source of truth)
-│   ├── api-client-react/            # Generated React Query hooks
-│   ├── api-zod/                     # Generated Zod validation schemas
+│   ├── api-spec/openapi.yaml        # OpenAPI 3.1 — single source of truth
+│   ├── api-client-react/            # Generated React Query hooks (from OpenAPI)
+│   ├── api-zod/                     # Generated Zod schemas (from OpenAPI)
 │   └── db/
-│       ├── drizzle.config.ts        # Drizzle Kit config (reads DATABASE_URL)
-│       └── src/schema/
-│           ├── users.ts
-│           ├── posts.ts
-│           ├── likes.ts
-│           ├── comments.ts
-│           └── follows.ts
-└── package.json
+│       ├── drizzle.config.ts        # Reads DATABASE_URL
+│       └── src/schema/              # users, posts, likes, comments, follows
+├── .env.example                     # Template — copy to .env and fill in
+└── README.md
 ```
 
 ---
 
-## Environment Variables (.env)
+## Environment Variables — Do You Need a `.env` File?
 
-### Do you need a `.env` file?
+### Running on Replit
+No `.env` file needed. Add values in the **Secrets** panel (the lock icon in the sidebar). Every variable below maps to a secret key.
 
-**Yes** — when running locally outside Replit, you need to set environment variables. On Replit, these are managed as **Secrets** (the built-in secrets manager), so no `.env` file is committed to the repo.
+### Running locally on your own machine
+Yes. Copy the template and fill in your values:
 
-> **Never commit `.env` to Git.** Add it to `.gitignore`.
-
-### Required Variables
-
-| Variable | Required | Description |
-|---|---|---|
-| `DATABASE_URL` | **Yes** | Full PostgreSQL connection string |
-| `SESSION_SECRET` | **Yes** | Secret key for signing JWT tokens. Use a long random string. |
-| `PORT` | Auto-set | Port the API server listens on. Defaults are managed by the runtime. |
-
-### Optional Variables (set automatically by PostgreSQL providers)
-
-When using Supabase, Neon, or local Postgres, some providers also set individual connection parts. `DATABASE_URL` alone is sufficient.
-
-| Variable | Description |
-|---|---|
-| `PGHOST` | Database host |
-| `PGPORT` | Database port (usually 5432) |
-| `PGUSER` | Database username |
-| `PGPASSWORD` | Database password |
-| `PGDATABASE` | Database name |
-
-### Example `.env` file
-
-Create a file called `.env` in the **project root**:
-
-```env
-# PostgreSQL connection string
-DATABASE_URL=postgresql://postgres:yourpassword@localhost:5432/socialconnect
-
-# JWT secret — use a long random string (never share this)
-SESSION_SECRET=replace-with-a-long-random-secret-string-at-least-32-chars
-
-# Port for the API server (optional, defaults to 8080)
-PORT=8080
+```bash
+cp .env.example .env
+# Open .env and fill in every value
 ```
 
-Generate a strong secret:
+> **Never commit `.env` to Git.** It is already in `.gitignore`.
+
+### All required variables
+
+| Variable | Required | Where to get it |
+|---|---|---|
+| `SUPABASE_URL` | **Yes** | Supabase → Project Settings → API → Project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Yes** | Supabase → Project Settings → API → service_role key |
+| `DATABASE_URL` | **Yes** | Supabase → Project Settings → Database → Connection string (URI) |
+| `SESSION_SECRET` | **Yes** | Generate yourself (see below) |
+| `SUPABASE_STORAGE_BUCKET` | No | Name of your storage bucket — default: `images` |
+| `PORT` | No | API server port — default: `8080` |
+
+**Generate a SESSION_SECRET:**
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
 ---
 
-## Database Setup (Real PostgreSQL)
+## Setting Up Supabase (Step-by-Step)
 
-The app uses **Drizzle ORM** with PostgreSQL. You need to run a schema push once after setting `DATABASE_URL`.
+### Step 1 — Create a Supabase Project
 
-### Option A — Supabase (Recommended for Assessment)
-
-The assessment spec mentions Supabase. Here's how to set it up:
-
-1. Go to [supabase.com](https://supabase.com) and create a free project.
-2. After the project is created, go to **Project Settings → Database**.
-3. Copy the **Connection string** under "URI" — it looks like:
-   ```
-   postgresql://postgres:[YOUR-PASSWORD]@db.xxxxxxxxxxxx.supabase.co:5432/postgres
-   ```
-4. Set it as your `DATABASE_URL` environment variable (in `.env` or Replit Secrets).
-5. Push the schema:
-   ```bash
-   pnpm --filter @workspace/db run push
-   ```
-
-**For image storage on Supabase Storage** (optional upgrade from local file storage):
-
-Currently images are stored locally in `artifacts/api-server/uploads/`. To store on Supabase Storage instead:
-
-1. In Supabase dashboard → **Storage** → create a bucket called `images` (set to Public).
-2. Go to **Project Settings → API** and copy your `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
-3. Add them to your `.env`:
-   ```env
-   SUPABASE_URL=https://xxxxxxxxxxxx.supabase.co
-   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-   ```
-4. Install the Supabase client in the API server:
-   ```bash
-   pnpm --filter @workspace/api-server add @supabase/supabase-js
-   ```
-5. Replace `artifacts/api-server/src/lib/imageStorage.ts` with Supabase Storage upload logic.
-
-### Option B — Local PostgreSQL
-
-1. Install PostgreSQL on your machine:
-   - **macOS**: `brew install postgresql && brew services start postgresql`
-   - **Ubuntu/Debian**: `sudo apt install postgresql && sudo service postgresql start`
-   - **Windows**: Download from [postgresql.org](https://www.postgresql.org/download/windows/)
-
-2. Create a database:
-   ```bash
-   psql -U postgres -c "CREATE DATABASE socialconnect;"
-   ```
-
-3. Set your `DATABASE_URL` in `.env`:
-   ```env
-   DATABASE_URL=postgresql://postgres:yourpassword@localhost:5432/socialconnect
-   ```
-
-4. Push the schema:
-   ```bash
-   pnpm --filter @workspace/db run push
-   ```
-
-### Option C — Any Hosted PostgreSQL (Neon, Railway, etc.)
-
-**Neon** (free tier, serverless Postgres):
-1. Sign up at [neon.tech](https://neon.tech)
-2. Create a project → copy the connection string from the dashboard
-3. Set it as `DATABASE_URL` → run `pnpm --filter @workspace/db run push`
-
-**Railway**:
-1. Sign up at [railway.app](https://railway.app)
-2. New project → Add PostgreSQL → copy the `DATABASE_URL` from the Variables tab
-3. Set it → run `pnpm --filter @workspace/db run push`
+1. Go to [supabase.com](https://supabase.com) and sign up / log in.
+2. Click **New project**.
+3. Fill in: Organisation, Project name, Database password (save this — you need it for `DATABASE_URL`), Region.
+4. Click **Create new project** and wait ~2 minutes for provisioning.
 
 ---
 
-## Running the Project Locally
+### Step 2 — Get Your Database URL
+
+1. In your project dashboard → **Project Settings** (gear icon, bottom left) → **Database**.
+2. Scroll down to **Connection string**.
+3. Select the **URI** tab.
+4. Copy the string — it looks like:
+   ```
+   postgresql://postgres:[YOUR-PASSWORD]@db.xxxxxxxxxxxx.supabase.co:5432/postgres
+   ```
+5. Replace `[YOUR-PASSWORD]` with the password you set in Step 1.
+6. Set this as `DATABASE_URL` in your `.env` or Replit Secrets.
+
+> **Connection pooling note:** For production, use the **Session mode** pooler URL (port 5432), not the Transaction mode (port 6543), because Drizzle ORM uses prepared statements.
+
+---
+
+### Step 3 — Get Your API Keys
+
+1. **Project Settings → API**.
+2. You will see two values to copy:
+
+   | Field | Variable name |
+   |---|---|
+   | **Project URL** | `SUPABASE_URL` |
+   | **Project API keys → service_role** (secret) | `SUPABASE_SERVICE_ROLE_KEY` |
+
+3. Set both in your `.env` or Replit Secrets.
+
+> The `service_role` key has full database access and bypasses Row Level Security. **Never expose it in browser code or commit it to Git.** It is only used on the server.
+
+---
+
+### Step 4 — Create a Storage Bucket
+
+Images and avatars are stored in Supabase Storage.
+
+1. In your project → **Storage** (left sidebar).
+2. Click **New bucket**.
+3. Name it `images` (or any name — just set `SUPABASE_STORAGE_BUCKET` to match).
+4. Set it to **Public** so uploaded images have publicly accessible URLs.
+5. Click **Create bucket**.
+
+**Set CORS for the bucket** (so your frontend can display images):
+
+1. Storage → **Policies** tab on the `images` bucket.
+2. Add a policy: allow `SELECT` (read) for `anon` role — or set the bucket to Public (already done above).
+
+---
+
+### Step 5 — Push the Database Schema
+
+After setting `DATABASE_URL`, run this once to create all tables:
+
+```bash
+pnpm --filter @workspace/db run push
+```
+
+This creates: `users`, `posts`, `likes`, `comments`, `follows` tables — no manual SQL needed.
+
+If you make schema changes later, run the same command again. Use `push-force` if you need to reset:
+
+```bash
+pnpm --filter @workspace/db run push-force
+```
+
+---
+
+## Running Locally
 
 ### Prerequisites
 
 - **Node.js** >= 20
-- **pnpm** >= 9 — install with `npm install -g pnpm`
-- A **PostgreSQL** database (see above)
+- **pnpm** >= 9 — `npm install -g pnpm`
+- A Supabase project with `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` configured
 
 ### Steps
 
 ```bash
-# 1. Clone the repository
+# 1. Clone the repo
 git clone https://github.com/YOUR_USERNAME/socialconnect.git
 cd socialconnect
 
 # 2. Create your .env file
 cp .env.example .env
-# Edit .env and fill in DATABASE_URL and SESSION_SECRET
+# Fill in all values in .env
 
-# 3. Install dependencies
+# 3. Install all dependencies
 pnpm install
 
-# 4. Push the database schema (run this once, or after schema changes)
+# 4. Push database schema (first time only)
 pnpm --filter @workspace/db run push
 
-# 5. Start the API server (terminal 1)
+# 5. Start the API server  (terminal 1)
 pnpm --filter @workspace/api-server run dev
 
-# 6. Start the frontend (terminal 2)
+# 6. Start the frontend  (terminal 2)
 pnpm --filter @workspace/social-connect run dev
 ```
 
-The app will be available at:
-- **Frontend**: http://localhost:21801
-- **API**: http://localhost:8080/api
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:21801 |
+| API | http://localhost:8080/api |
 
-### Loading environment variables locally
+### Loading .env automatically
 
-If you use a `.env` file, load it before running the server. The simplest approach is to use `dotenv`:
+Install `dotenv-cli` once globally and prefix commands:
 
 ```bash
-# Install dotenv-cli globally (one-time)
 npm install -g dotenv-cli
-
-# Then run commands with env loaded
 dotenv -- pnpm --filter @workspace/api-server run dev
 ```
 
-Or add `dotenv/config` as an import to `artifacts/api-server/src/index.ts` (development only):
+Or add `import 'dotenv/config'` at the top of `artifacts/api-server/src/index.ts`.
 
-```typescript
-// Add at the very top of artifacts/api-server/src/index.ts (dev only)
-import 'dotenv/config';
-```
-
-And install it:
-```bash
-pnpm --filter @workspace/api-server add dotenv
-```
-
-### Useful development commands
+### Common development commands
 
 | Command | What it does |
 |---|---|
-| `pnpm --filter @workspace/api-server run dev` | Build & start API server |
-| `pnpm --filter @workspace/social-connect run dev` | Start Vite dev server |
-| `pnpm --filter @workspace/db run push` | Push schema changes to database |
-| `pnpm --filter @workspace/db run push-force` | Force push schema (drops conflicting columns) |
-| `pnpm --filter @workspace/api-spec run codegen` | Regenerate React Query hooks + Zod schemas from OpenAPI spec |
-| `pnpm run typecheck` | Full TypeScript typecheck across all packages |
-| `pnpm run build` | Typecheck + build all packages |
+| `pnpm --filter @workspace/api-server run dev` | Build + start API server |
+| `pnpm --filter @workspace/social-connect run dev` | Start Vite frontend dev server |
+| `pnpm --filter @workspace/db run push` | Apply schema changes to DB |
+| `pnpm --filter @workspace/api-spec run codegen` | Regenerate React Query hooks + Zod schemas |
+| `pnpm run typecheck` | Full TypeScript check across all packages |
+| `pnpm run build` | Typecheck + build everything |
 
 ---
 
-## API Endpoints Reference
+## API Endpoints
 
-All protected endpoints require the header:
+All protected endpoints require:
 ```
 Authorization: Bearer <access_token>
 ```
@@ -310,10 +264,10 @@ Authorization: Bearer <access_token>
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
 | POST | `/api/auth/register` | No | Register new user |
-| POST | `/api/auth/login` | No | Login (email or username) |
-| POST | `/api/auth/logout` | Yes | Logout |
+| POST | `/api/auth/login` | No | Login (email or username + password) |
+| POST | `/api/auth/logout` | Yes | Logout (client removes token) |
 
-**Register body:**
+**Register request:**
 ```json
 {
   "email": "user@example.com",
@@ -323,17 +277,16 @@ Authorization: Bearer <access_token>
   "last_name": "Doe"
 }
 ```
-- `username`: 3–30 chars, alphanumeric + underscore only (`^[a-zA-Z0-9_]+$`)
+- `username`: 3–30 chars, only letters, digits, underscore (`^[a-zA-Z0-9_]+$`)
 - `password`: minimum 8 characters
 
-**Login body:**
+**Login request** — `login` field accepts **email OR username**:
 ```json
 {
   "login": "john_doe",
   "password": "password123"
 }
 ```
-- `login` field accepts **email OR username**
 
 **Auth response:**
 ```json
@@ -349,22 +302,22 @@ Authorization: Bearer <access_token>
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| GET | `/api/users` | Yes | List all users (paginated) |
-| GET | `/api/users/:userId` | Yes | Get user profile by ID |
+| GET | `/api/users` | Yes | List all users (`?page=1&limit=20`) |
+| GET | `/api/users/:userId` | Yes | Get user profile |
 | PATCH | `/api/users/me` | Yes | Update own profile |
-| POST | `/api/users/me/avatar` | Yes | Upload avatar image (multipart) |
+| POST | `/api/users/me/avatar` | Yes | Upload avatar (`multipart/form-data`) |
 | POST | `/api/users/:userId/follow` | Yes | Follow a user |
 | DELETE | `/api/users/:userId/follow` | Yes | Unfollow a user |
-| GET | `/api/users/:userId/followers` | Yes | Get user's followers |
-| GET | `/api/users/:userId/following` | Yes | Get users a user is following |
+| GET | `/api/users/:userId/followers` | Yes | List followers |
+| GET | `/api/users/:userId/following` | Yes | List users being followed |
 
 **Update profile body (all fields optional):**
 ```json
 {
-  "bio": "Software developer & coffee lover",
-  "avatar_url": "https://example.com/avatar.jpg",
+  "bio": "Software developer",
+  "avatar_url": "https://...",
   "website": "https://johndoe.com",
-  "location": "San Francisco, CA",
+  "location": "London, UK",
   "first_name": "John",
   "last_name": "Doe"
 }
@@ -372,31 +325,10 @@ Authorization: Bearer <access_token>
 - `bio`: max 160 characters
 
 **Avatar upload** — `POST /api/users/me/avatar`:
-```
-Content-Type: multipart/form-data
-Field: avatar (file) — JPEG or PNG, max 2 MB
-```
-
-**UserProfile response shape:**
-```json
-{
-  "id": 1,
-  "username": "john_doe",
-  "email": "user@example.com",
-  "first_name": "John",
-  "last_name": "Doe",
-  "bio": "Software developer",
-  "avatar_url": "/api/uploads/avatar-1-abc123.jpg",
-  "website": "https://johndoe.com",
-  "location": "San Francisco",
-  "posts_count": 12,
-  "followers_count": 45,
-  "following_count": 30,
-  "is_following": false,
-  "created_at": "2026-01-01T00:00:00.000Z",
-  "last_login": "2026-03-25T12:00:00.000Z"
-}
-```
+- `Content-Type: multipart/form-data`
+- Field name: `avatar`
+- Accepted: JPEG, PNG — max 2 MB
+- Returns: `{ "avatar_url": "https://...", "message": "Avatar uploaded successfully" }`
 
 ---
 
@@ -404,30 +336,28 @@ Field: avatar (file) — JPEG or PNG, max 2 MB
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| GET | `/api/posts` | Yes | List all active posts (paginated) |
-| POST | `/api/posts` | Yes | Create a post (multipart/form-data) |
-| GET | `/api/posts/:postId` | Yes | Get a single post |
-| PATCH | `/api/posts/:postId` | Yes | Update own post |
-| DELETE | `/api/posts/:postId` | Yes | Delete own post (soft delete) |
+| GET | `/api/posts` | Yes | List all posts (`?page=1&limit=20`) |
+| POST | `/api/posts` | Yes | Create post (`multipart/form-data`) |
+| GET | `/api/posts/:postId` | Yes | Get single post |
+| PATCH | `/api/posts/:postId` | Yes | Update own post (content only) |
+| DELETE | `/api/posts/:postId` | Yes | Soft-delete own post |
 | POST | `/api/posts/:postId/like` | Yes | Like a post |
 | DELETE | `/api/posts/:postId/like` | Yes | Unlike a post |
-| GET | `/api/posts/:postId/comments` | Yes | List comments on a post |
+| GET | `/api/posts/:postId/comments` | Yes | List comments |
 | POST | `/api/posts/:postId/comments` | Yes | Add a comment |
 | DELETE | `/api/posts/:postId/comments/:commentId` | Yes | Delete own comment |
 
 **Create post** — `POST /api/posts`:
-```
-Content-Type: multipart/form-data
-Field: content (text, required, max 280 chars)
-Field: image (file, optional — JPEG or PNG, max 2 MB)
-```
+- `Content-Type: multipart/form-data`
+- `content` (text, required, max 280 chars)
+- `image` (file, optional — JPEG/PNG, max 2 MB)
 
-**Post response shape:**
+**Post object shape:**
 ```json
 {
   "id": 1,
   "content": "Hello SocialConnect!",
-  "image_url": null,
+  "image_url": "https://xxxx.supabase.co/storage/v1/object/public/images/post-xxx.jpg",
   "is_active": true,
   "like_count": 5,
   "comment_count": 2,
@@ -437,18 +367,12 @@ Field: image (file, optional — JPEG or PNG, max 2 MB)
     "username": "john_doe",
     "first_name": "John",
     "last_name": "Doe",
-    "avatar_url": null
+    "avatar_url": "https://xxxx.supabase.co/storage/v1/object/public/images/avatar-1-abc.jpg"
   },
   "created_at": "2026-03-25T12:00:00.000Z",
   "updated_at": "2026-03-25T12:00:00.000Z"
 }
 ```
-
-**Pagination** — all list endpoints support:
-```
-?page=1&limit=20
-```
-Response includes `{ total, page, limit, has_next }`.
 
 ---
 
@@ -456,166 +380,194 @@ Response includes `{ total, page, limit, has_next }`.
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| GET | `/api/feed` | Yes | Personalized feed |
+| GET | `/api/feed` | Yes | Personalised chronological feed |
 
-Returns posts from followed users chronologically. If not following anyone, shows all public posts.
-
----
-
-## Database Schema
-
-### `users` table
-| Column | Type | Notes |
-|---|---|---|
-| `id` | serial PK | |
-| `email` | varchar(255) UNIQUE | |
-| `username` | varchar(30) UNIQUE | 3–30 chars, alphanumeric + underscore |
-| `password_hash` | text | bcryptjs hash |
-| `first_name` | varchar(100) | |
-| `last_name` | varchar(100) | |
-| `bio` | varchar(160) | nullable |
-| `avatar_url` | text | nullable |
-| `website` | text | nullable |
-| `location` | varchar(100) | nullable |
-| `followers_count` | integer | denormalized, updated on follow/unfollow |
-| `following_count` | integer | denormalized, updated on follow/unfollow |
-| `posts_count` | integer | denormalized, updated on post create/delete |
-| `last_login` | timestamp | updated on each successful login |
-| `created_at` | timestamp | |
-| `updated_at` | timestamp | |
-
-### `posts` table
-| Column | Type | Notes |
-|---|---|---|
-| `id` | serial PK | |
-| `content` | text | max 280 chars |
-| `image_url` | text | nullable, local path or URL |
-| `is_active` | boolean | default true, set false on delete (soft delete) |
-| `like_count` | integer | denormalized |
-| `comment_count` | integer | denormalized |
-| `author_id` | integer FK → users | cascade delete |
-| `created_at` | timestamp | |
-| `updated_at` | timestamp | |
-
-### `likes` table
-| Column | Type | Notes |
-|---|---|---|
-| `id` | serial PK | |
-| `user_id` | integer FK → users | cascade delete |
-| `post_id` | integer FK → posts | cascade delete |
-| `created_at` | timestamp | |
-| | UNIQUE | `(user_id, post_id)` |
-
-### `comments` table
-| Column | Type | Notes |
-|---|---|---|
-| `id` | serial PK | |
-| `content` | text | max 500 chars |
-| `author_id` | integer FK → users | cascade delete |
-| `post_id` | integer FK → posts | cascade delete |
-| `created_at` | timestamp | |
-| `updated_at` | timestamp | |
-
-### `follows` table
-| Column | Type | Notes |
-|---|---|---|
-| `id` | serial PK | |
-| `follower_id` | integer FK → users | cascade delete |
-| `following_id` | integer FK → users | cascade delete |
-| `created_at` | timestamp | |
-| | UNIQUE | `(follower_id, following_id)` |
+- Returns posts from followed users when you follow someone.
+- Falls back to all public posts when following no one.
+- Supports `?page=1&limit=20`.
 
 ---
 
-## Authentication Flow
+### Pagination
 
-1. **Register** — `POST /api/auth/register` → returns `access_token` + user profile
-2. **Login** — `POST /api/auth/login` with email **or** username → returns `access_token` + user profile
-3. **Store token** — frontend stores `access_token` in `localStorage`
-4. **Authenticated requests** — every request includes header `Authorization: Bearer <access_token>`
-5. **Token expiry** — tokens expire after **7 days**
-6. **Logout** — `POST /api/auth/logout` (server-side is stateless; frontend removes token from localStorage)
-
-### JWT Payload
+All list endpoints return:
 ```json
 {
-  "userId": 1,
-  "username": "john_doe",
-  "iat": 1711363200,
-  "exp": 1711968000
+  "posts": [...],
+  "total": 42,
+  "page": 1,
+  "limit": 20,
+  "has_next": true
 }
 ```
 
 ---
 
-## Image Uploads
+## Database Schema
 
-### Current implementation (local storage)
-Uploaded images are stored in `artifacts/api-server/uploads/` and served at `/api/uploads/<filename>`.
+### `users`
 
-- Supported formats: **JPEG, PNG only**
-- Maximum file size: **2 MB**
-- Validated via multer's `fileFilter` (checks MIME type) and `limits.fileSize`
+| Column | Type | Notes |
+|---|---|---|
+| `id` | serial PK | |
+| `email` | varchar(255) UNIQUE | |
+| `username` | varchar(30) UNIQUE | 3–30 chars, `^[a-zA-Z0-9_]+$` |
+| `password_hash` | text | bcryptjs, cost factor 12 |
+| `first_name` | varchar(100) | |
+| `last_name` | varchar(100) | |
+| `bio` | varchar(160) | nullable, max 160 chars |
+| `avatar_url` | text | nullable, Supabase Storage public URL |
+| `website` | text | nullable |
+| `location` | varchar(100) | nullable |
+| `followers_count` | integer | denormalized — synced on follow/unfollow |
+| `following_count` | integer | denormalized — synced on follow/unfollow |
+| `posts_count` | integer | denormalized — synced on post create/delete |
+| `last_login` | timestamp | updated on every successful login |
+| `created_at` | timestamp | |
+| `updated_at` | timestamp | |
 
-### Upgrading to Supabase Storage
-See [Option A — Supabase](#option-a--supabase-recommended-for-assessment) above for the upgrade path.
+### `posts`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | serial PK | |
+| `content` | text | max 280 chars |
+| `image_url` | text | nullable, Supabase Storage public URL |
+| `is_active` | boolean | soft delete: set false on DELETE |
+| `like_count` | integer | denormalized — synced on like/unlike |
+| `comment_count` | integer | denormalized — synced on comment add/delete |
+| `author_id` | FK → users | cascade delete |
+| `created_at` | timestamp | |
+| `updated_at` | timestamp | |
+
+### `likes`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | serial PK | |
+| `user_id` | FK → users | cascade delete |
+| `post_id` | FK → posts | cascade delete |
+| `created_at` | timestamp | |
+| UNIQUE | | `(user_id, post_id)` — one like per user per post |
+
+### `comments`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | serial PK | |
+| `content` | text | max 500 chars |
+| `author_id` | FK → users | cascade delete |
+| `post_id` | FK → posts | cascade delete |
+| `created_at` | timestamp | |
+| `updated_at` | timestamp | |
+
+### `follows`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | serial PK | |
+| `follower_id` | FK → users | cascade delete |
+| `following_id` | FK → users | cascade delete |
+| `created_at` | timestamp | |
+| UNIQUE | | `(follower_id, following_id)` — one follow per pair |
 
 ---
 
-## Deployment
+## Authentication Flow
 
-### On Replit (current setup)
-Click the **Deploy** / **Publish** button in the Replit interface. Replit handles:
-- Building the frontend (Vite)
-- Building and running the API server
-- Database connection (via built-in PostgreSQL)
-- TLS and domain routing
+1. **Register** → POST `/api/auth/register` → server creates user, returns `access_token` + profile
+2. **Login** → POST `/api/auth/login` with email **or** username → returns `access_token` + profile
+3. **Store token** → frontend saves `access_token` to `localStorage`
+4. **Use token** → every request includes `Authorization: Bearer <access_token>`
+5. **Token expiry** → 7 days
+6. **Logout** → POST `/api/auth/logout` → frontend removes token from `localStorage`
 
-### On Vercel / Netlify (as per assessment)
-The frontend is a standard Vite SPA — deploy it as a static site:
+Passwords are hashed with **bcryptjs** (cost factor 12). Tokens are signed with **HS256** using your `SESSION_SECRET`.
 
+---
+
+## Image Uploads
+
+### With Supabase Storage (production — recommended)
+
+When `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set:
+- Files are uploaded to your Supabase Storage bucket (`images` by default)
+- `image_url` / `avatar_url` in the database will be the full public Supabase URL:
+  `https://xxxxxxxxxxxx.supabase.co/storage/v1/object/public/images/filename.jpg`
+
+**Constraints enforced on every upload:**
+- Accepted formats: **JPEG, PNG only** (checked via MIME type)
+- Maximum file size: **2 MB**
+
+### Without Supabase Storage (local development fallback)
+
+If `SUPABASE_URL` is not set, images are saved to `artifacts/api-server/uploads/` and served at `/api/uploads/<filename>`. This is for running locally without a Supabase project.
+
+---
+
+## Deployment — Vercel / Netlify
+
+### Frontend → Vercel or Netlify
+
+Build the static frontend:
 ```bash
 pnpm --filter @workspace/social-connect run build
 # Output: artifacts/social-connect/dist/
 ```
 
-The API server needs a separate Node.js host (Railway, Render, Fly.io, etc.):
+Deploy the `dist/` folder as a static site. Set the base path to `/` and configure SPA routing (all paths → `index.html`).
+
+### API Server → Railway / Render / Fly.io
 
 ```bash
 pnpm --filter @workspace/api-server run build
 # Output: artifacts/api-server/dist/index.mjs
-node artifacts/api-server/dist/index.mjs
 ```
 
-Set all environment variables on your hosting platform's dashboard — **do not use a `.env` file in production**.
+Start command: `node artifacts/api-server/dist/index.mjs`
 
----
+Set these environment variables on your hosting platform dashboard:
 
-## .gitignore Recommendations
-
-Make sure these are in your `.gitignore`:
-
-```gitignore
-# Environment variables — NEVER commit these
-.env
-.env.local
-.env.production
-
-# Uploaded files (runtime, not source code)
-artifacts/api-server/uploads/
-
-# Build outputs
-artifacts/*/dist/
-node_modules/
+```
+SUPABASE_URL=...
+SUPABASE_SERVICE_ROLE_KEY=...
+SUPABASE_STORAGE_BUCKET=images
+DATABASE_URL=...
+SESSION_SECRET=...
+PORT=8080
 ```
 
 ---
 
 ## Security Notes
 
-- Passwords are hashed with **bcryptjs** (cost factor 12) — never stored in plain text
-- JWT secret (`SESSION_SECRET`) must be a long random string and **never committed to Git**
-- All mutating endpoints require a valid Bearer token
-- Users can only edit/delete their **own** posts and comments (403 Forbidden otherwise)
-- Image uploads are validated for MIME type (JPEG/PNG) and file size (2 MB max)
-- SQL injection is prevented by Drizzle ORM's parameterized queries
+| Concern | Implementation |
+|---|---|
+| Password storage | bcryptjs, cost factor 12 — never plain text |
+| Token signing | HS256 JWT, signed with `SESSION_SECRET` |
+| Token scope | Server-side only (`SUPABASE_SERVICE_ROLE_KEY` never sent to browser) |
+| Ownership checks | Users can only edit/delete their **own** posts and comments (403 otherwise) |
+| File validation | MIME type check + 2 MB size limit on every upload |
+| SQL injection | Prevented by Drizzle ORM parameterized queries |
+| Secrets in Git | `.env` is in `.gitignore` — never commit credentials |
+
+---
+
+## .gitignore Checklist
+
+Make sure these lines are in your `.gitignore`:
+
+```gitignore
+# Secrets
+.env
+.env.local
+.env.production
+
+# Uploaded files (local dev fallback)
+artifacts/api-server/uploads/
+
+# Build outputs
+artifacts/*/dist/
+node_modules/
+*.tsbuildinfo
+```

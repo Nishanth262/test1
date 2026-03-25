@@ -1,0 +1,19 @@
+packages:
+  "framer-motion": "For page transitions and smooth micro-interactions"
+  "date-fns": "For formatting relative dates (e.g. '2h ago') on posts and comments"
+  "react-hook-form": "For robust form state management"
+  "@hookform/resolvers": "For Zod form validation integration"
+  "zod": "For defining and validating form schemas"
+  "clsx": "For conditional classname merging"
+  "tailwind-merge": "For tailwind class deduplication"
+
+images:
+  - path: "artifacts/social-connect/public/images/auth-bg.png"
+    description: "Abstract modern geometric pattern with vibrant Twitter blue and deep dark slate tones, premium smooth gradient feel, subtle glassmorphism elements"
+    aspect_ratio: "16:9"
+
+notes:
+  - Wouter is used for routing.
+  - Authentication JWTs are stored in localStorage and appended to request headers.
+  - Shadcn UI components are pre-existing and imported from @/components/ui/*.
+  - @workspace/api-client-react is used for all data fetching.

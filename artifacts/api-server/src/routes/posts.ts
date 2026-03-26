@@ -143,7 +143,7 @@ router.post("/", requireAuth, upload.single("image"), async (req, res) => {
 });
 
 router.get("/:postId", requireAuth, async (req, res) => {
-  const postId = parseInt(req.params.postId);
+  const postId = parseInt(req.params.postId as string);
   if (isNaN(postId)) {
     res.status(400).json({ error: "Bad Request", message: "Invalid post ID" });
     return;
@@ -171,7 +171,7 @@ router.get("/:postId", requireAuth, async (req, res) => {
 });
 
 router.patch("/:postId", requireAuth, async (req, res) => {
-  const postId = parseInt(req.params.postId);
+  const postId = parseInt(req.params.postId as string);
   const [post] = await db.select().from(postsTable).where(eq(postsTable.id, postId)).limit(1);
 
   if (!post) {
@@ -206,7 +206,7 @@ router.patch("/:postId", requireAuth, async (req, res) => {
 });
 
 router.delete("/:postId", requireAuth, async (req, res) => {
-  const postId = parseInt(req.params.postId);
+  const postId = parseInt(req.params.postId as string);
   const [post] = await db.select().from(postsTable).where(eq(postsTable.id, postId)).limit(1);
 
   if (!post) {
@@ -228,7 +228,7 @@ router.delete("/:postId", requireAuth, async (req, res) => {
 });
 
 router.post("/:postId/like", requireAuth, async (req, res) => {
-  const postId = parseInt(req.params.postId);
+  const postId = parseInt(req.params.postId as string);
   const currentUserId = req.user!.userId;
 
   const [post] = await db
@@ -263,7 +263,7 @@ router.post("/:postId/like", requireAuth, async (req, res) => {
 });
 
 router.delete("/:postId/like", requireAuth, async (req, res) => {
-  const postId = parseInt(req.params.postId);
+  const postId = parseInt(req.params.postId as string);
   const currentUserId = req.user!.userId;
 
   const [existing] = await db
@@ -289,7 +289,7 @@ router.delete("/:postId/like", requireAuth, async (req, res) => {
 });
 
 router.get("/:postId/comments", requireAuth, async (req, res) => {
-  const postId = parseInt(req.params.postId);
+  const postId = parseInt(req.params.postId as string);
   const page = Math.max(1, parseInt(String(req.query.page ?? "1")));
   const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "20"))));
   const offset = (page - 1) * limit;
@@ -330,7 +330,7 @@ router.get("/:postId/comments", requireAuth, async (req, res) => {
 });
 
 router.post("/:postId/comments", requireAuth, async (req, res) => {
-  const postId = parseInt(req.params.postId);
+  const postId = parseInt(req.params.postId as string);
   const { content } = req.body;
 
   if (!content || content.length === 0) {
@@ -381,8 +381,8 @@ router.post("/:postId/comments", requireAuth, async (req, res) => {
 });
 
 router.delete("/:postId/comments/:commentId", requireAuth, async (req, res) => {
-  const postId = parseInt(req.params.postId);
-  const commentId = parseInt(req.params.commentId);
+  const postId = parseInt(req.params.postId as string);
+  const commentId = parseInt(req.params.commentId as string);
 
   const [comment] = await db
     .select()

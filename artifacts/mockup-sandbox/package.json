@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "vite dev",
+    "dev": "cross-env NODE_ENV=development pnpm run build && pnpm run start",
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit"
@@ -51,6 +51,7 @@
     "cmdk": "^1.1.1",
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.6.0",
+    "esbuild": "^0.19.0",
     "fast-glob": "^3.3.3",
     "framer-motion": "catalog:",
     "input-otp": "^1.4.2",

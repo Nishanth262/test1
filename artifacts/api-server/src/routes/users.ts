@@ -122,7 +122,7 @@ router.post("/me/avatar", requireAuth, upload.single("avatar"), async (req, res)
 });
 
 router.get("/:userId", requireAuth, async (req, res) => {
-  const userId = parseInt(req.params.userId);
+  const userId = parseInt(req.params.userId as string);
   if (isNaN(userId)) {
     res.status(400).json({ error: "Bad Request", message: "Invalid user ID" });
     return;
@@ -149,7 +149,7 @@ router.get("/:userId", requireAuth, async (req, res) => {
 });
 
 router.post("/:userId/follow", requireAuth, async (req, res) => {
-  const userId = parseInt(req.params.userId);
+  const userId = parseInt(req.params.userId as string);
   const currentUserId = req.user!.userId;
 
   if (userId === currentUserId) {
@@ -190,7 +190,7 @@ router.post("/:userId/follow", requireAuth, async (req, res) => {
 });
 
 router.delete("/:userId/follow", requireAuth, async (req, res) => {
-  const userId = parseInt(req.params.userId);
+  const userId = parseInt(req.params.userId as string);
   const currentUserId = req.user!.userId;
 
   const [existing] = await db
@@ -223,7 +223,7 @@ router.delete("/:userId/follow", requireAuth, async (req, res) => {
 });
 
 router.get("/:userId/followers", requireAuth, async (req, res) => {
-  const userId = parseInt(req.params.userId);
+  const userId = parseInt(req.params.userId as string);
   const page = Math.max(1, parseInt(String(req.query.page ?? "1")));
   const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "20"))));
   const offset = (page - 1) * limit;
@@ -248,7 +248,7 @@ router.get("/:userId/followers", requireAuth, async (req, res) => {
 });
 
 router.get("/:userId/following", requireAuth, async (req, res) => {
-  const userId = parseInt(req.params.userId);
+  const userId = parseInt(req.params.userId as string);
   const page = Math.max(1, parseInt(String(req.query.page ?? "1")));
   const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "20"))));
   const offset = (page - 1) * limit;

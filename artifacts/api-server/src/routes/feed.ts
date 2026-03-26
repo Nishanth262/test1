@@ -2,10 +2,11 @@ import { Router, type IRouter } from "express";
 import { db, postsTable, usersTable, likesTable, followsTable } from "@workspace/db";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth.js";
+import { asyncHandler } from "../lib/asyncHandler.js";
 
 const router: IRouter = Router();
 
-router.get("/", requireAuth, async (req, res) => {
+router.get("/", requireAuth, asyncHandler(async (req, res) => {
   const page = Math.max(1, parseInt(String(req.query.page ?? "1")));
   const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "20"))));
   const offset = (page - 1) * limit;
@@ -26,7 +27,7 @@ router.get("/", requireAuth, async (req, res) => {
           .where(
             and(
               eq(postsTable.is_active, true),
-              sql`${postsTable.author_id} = ANY(ARRAY[${sql.join(followingIds.map((id) => sql`${id}`), sql`, `)}]::int[])`
+              inArray(postsTable.author_id, followingIds)
             )
           )
           .orderBy(desc(postsTable.created_at))
@@ -47,7 +48,7 @@ router.get("/", requireAuth, async (req, res) => {
     ? await db
         .select()
         .from(usersTable)
-        .where(sql`${usersTable.id} = ANY(ARRAY[${sql.join(authorIds.map((id) => sql`${id}`), sql`, `)}]::int[])`)
+        .where(inArray(usersTable.id, authorIds))
     : [];
 
   const postIds = posts.map((p) => p.id);
@@ -59,7 +60,7 @@ router.get("/", requireAuth, async (req, res) => {
           .where(
             and(
               eq(likesTable.user_id, currentUserId),
-              sql`${likesTable.post_id} = ANY(ARRAY[${sql.join(postIds.map((id) => sql`${id}`), sql`, `)}]::int[])`
+              inArray(likesTable.post_id, postIds)
             )
           )
       : [];
@@ -95,6 +96,6 @@ router.get("/", requireAuth, async (req, res) => {
     limit,
     has_next: offset + posts.length < total,
   });
-});
+}));
 
 export default router;

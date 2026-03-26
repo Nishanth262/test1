@@ -2,9 +2,10 @@ import { Router, type IRouter } from "express";
 import multer from "multer";
 import crypto from "crypto";
 import { db, postsTable, usersTable, likesTable, commentsTable } from "@workspace/db";
-import { eq, and, desc, sql } from "drizzle-orm";
-import { requireAuth } from "../middlewares/auth.js";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { requireAuth, optionalAuth } from "../middlewares/auth.js";
 import { storeImage } from "../lib/imageStorage.js";
+import { asyncHandler } from "../lib/asyncHandler.js";
 
 const router: IRouter = Router();
 
@@ -49,20 +50,20 @@ function formatPost(
 async function getPostsWithLikes(
   posts: (typeof postsTable.$inferSelect)[],
   authors: (typeof usersTable.$inferSelect)[],
-  currentUserId: number
+  currentUserId: number | null
 ) {
   if (!posts.length) return [];
 
   const postIds = posts.map((p) => p.id);
   const likedPosts =
-    postIds.length > 0
+    currentUserId && postIds.length > 0
       ? await db
           .select({ post_id: likesTable.post_id })
           .from(likesTable)
           .where(
             and(
               eq(likesTable.user_id, currentUserId),
-              sql`${likesTable.post_id} = ANY(ARRAY[${sql.join(postIds.map((id) => sql`${id}`), sql`, `)}]::int[])`
+              inArray(likesTable.post_id, postIds)
             )
           )
       : [];
@@ -73,11 +74,11 @@ async function getPostsWithLikes(
   return posts.map((post) => formatPost(post, authorMap.get(post.author_id)!, likedSet.has(post.id)));
 }
 
-router.get("/", requireAuth, async (req, res) => {
+router.get("/", optionalAuth, asyncHandler(async (req, res) => {
   const page = Math.max(1, parseInt(String(req.query.page ?? "1")));
   const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "20"))));
   const offset = (page - 1) * limit;
-  const currentUserId = req.user!.userId;
+  const currentUserId = req.user?.userId ?? null;
 
   const [posts, totalResult] = await Promise.all([
     db
@@ -95,7 +96,7 @@ router.get("/", requireAuth, async (req, res) => {
     ? await db
         .select()
         .from(usersTable)
-        .where(sql`${usersTable.id} = ANY(ARRAY[${sql.join(authorIds.map((id) => sql`${id}`), sql`, `)}]::int[])`)
+        .where(inArray(usersTable.id, authorIds))
     : [];
 
   const total = Number(totalResult[0]?.count ?? 0);
@@ -108,9 +109,9 @@ router.get("/", requireAuth, async (req, res) => {
     limit,
     has_next: offset + posts.length < total,
   });
-});
+}));
 
-router.post("/", requireAuth, upload.single("image"), async (req, res) => {
+router.post("/", requireAuth, upload.single("image"), asyncHandler(async (req, res) => {
   const content = req.body.content;
   if (!content || content.length === 0) {
     res.status(400).json({ error: "Validation error", message: "Content is required" });
@@ -140,9 +141,9 @@ router.post("/", requireAuth, upload.single("image"), async (req, res) => {
 
   const [author] = await db.select().from(usersTable).where(eq(usersTable.id, req.user!.userId)).limit(1);
   res.status(201).json(formatPost(post, author, false));
-});
+}));
 
-router.get("/:postId", requireAuth, async (req, res) => {
+router.get("/:postId", requireAuth, asyncHandler(async (req, res) => {
   const postId = parseInt(req.params.postId as string);
   if (isNaN(postId)) {
     res.status(400).json({ error: "Bad Request", message: "Invalid post ID" });
@@ -168,9 +169,9 @@ router.get("/:postId", requireAuth, async (req, res) => {
     .limit(1);
 
   res.json(formatPost(post, author, !!liked));
-});
+}));
 
-router.patch("/:postId", requireAuth, async (req, res) => {
+router.patch("/:postId", requireAuth, asyncHandler(async (req, res) => {
   const postId = parseInt(req.params.postId as string);
   const [post] = await db.select().from(postsTable).where(eq(postsTable.id, postId)).limit(1);
 
@@ -203,9 +204,9 @@ router.patch("/:postId", requireAuth, async (req, res) => {
     .limit(1);
 
   res.json(formatPost(updated, author, !!liked));
-});
+}));
 
-router.delete("/:postId", requireAuth, async (req, res) => {
+router.delete("/:postId", requireAuth, asyncHandler(async (req, res) => {
   const postId = parseInt(req.params.postId as string);
   const [post] = await db.select().from(postsTable).where(eq(postsTable.id, postId)).limit(1);
 
@@ -225,9 +226,9 @@ router.delete("/:postId", requireAuth, async (req, res) => {
     .where(eq(usersTable.id, req.user!.userId));
 
   res.json({ message: "Post deleted successfully" });
-});
+}));
 
-router.post("/:postId/like", requireAuth, async (req, res) => {
+router.post("/:postId/like", requireAuth, asyncHandler(async (req, res) => {
   const postId = parseInt(req.params.postId as string);
   const currentUserId = req.user!.userId;
 
@@ -249,7 +250,8 @@ router.post("/:postId/like", requireAuth, async (req, res) => {
     .limit(1);
 
   if (existing) {
-    res.status(400).json({ error: "Bad Request", message: "Already liked this post" });
+    // Idempotent: already liked is not an error for repeated toggles
+    res.json({ message: "Post already liked" });
     return;
   }
 
@@ -260,9 +262,9 @@ router.post("/:postId/like", requireAuth, async (req, res) => {
     .where(eq(postsTable.id, postId));
 
   res.json({ message: "Post liked" });
-});
+}));
 
-router.delete("/:postId/like", requireAuth, async (req, res) => {
+router.delete("/:postId/like", requireAuth, asyncHandler(async (req, res) => {
   const postId = parseInt(req.params.postId as string);
   const currentUserId = req.user!.userId;
 
@@ -273,7 +275,8 @@ router.delete("/:postId/like", requireAuth, async (req, res) => {
     .limit(1);
 
   if (!existing) {
-    res.status(400).json({ error: "Bad Request", message: "Not liked this post" });
+    // Idempotent: if the user already has no like, return success
+    res.json({ message: "Post not liked" });
     return;
   }
 
@@ -286,9 +289,9 @@ router.delete("/:postId/like", requireAuth, async (req, res) => {
     .where(eq(postsTable.id, postId));
 
   res.json({ message: "Post unliked" });
-});
+}));
 
-router.get("/:postId/comments", requireAuth, async (req, res) => {
+router.get("/:postId/comments", requireAuth, asyncHandler(async (req, res) => {
   const postId = parseInt(req.params.postId as string);
   const page = Math.max(1, parseInt(String(req.query.page ?? "1")));
   const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "20"))));
@@ -327,9 +330,9 @@ router.get("/:postId/comments", requireAuth, async (req, res) => {
     limit,
     has_next: offset + comments.length < total,
   });
-});
+}));
 
-router.post("/:postId/comments", requireAuth, async (req, res) => {
+router.post("/:postId/comments", requireAuth, asyncHandler(async (req, res) => {
   const postId = parseInt(req.params.postId as string);
   const { content } = req.body;
 
@@ -378,9 +381,9 @@ router.post("/:postId/comments", requireAuth, async (req, res) => {
     created_at: comment.created_at.toISOString(),
     updated_at: comment.updated_at.toISOString(),
   });
-});
+}));
 
-router.delete("/:postId/comments/:commentId", requireAuth, async (req, res) => {
+router.delete("/:postId/comments/:commentId", requireAuth, asyncHandler(async (req, res) => {
   const postId = parseInt(req.params.postId as string);
   const commentId = parseInt(req.params.commentId as string);
 
@@ -406,6 +409,6 @@ router.delete("/:postId/comments/:commentId", requireAuth, async (req, res) => {
     .where(eq(postsTable.id, postId));
 
   res.json({ message: "Comment deleted" });
-});
+}));
 
 export default router;

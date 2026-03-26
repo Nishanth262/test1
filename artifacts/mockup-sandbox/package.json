@@ -2,6 +2,7 @@
   "name": "@workspace/mockup-sandbox",
   "version": "2.0.0",
   "type": "module",
+  
   "private": true,
   "scripts": {
     "dev": "cross-env NODE_ENV=development pnpm run build && pnpm run start",

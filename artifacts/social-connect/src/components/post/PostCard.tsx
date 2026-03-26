@@ -1,5 +1,5 @@
 import { formatDistanceToNow } from "date-fns";
-import { Link } from "wouter";
+import { useLocation, Link } from "wouter";
 import { Heart, MessageCircle, Trash2 } from "lucide-react";
 import { Post, useLikePost, useUnlikePost, useDeletePost } from "@workspace/api-client-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -9,20 +9,20 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getListPostsQueryKey, getGetFeedQueryKey, getGetUserProfileQueryKey } from "@workspace/api-client-react";
 
 export function PostCard({ post }: { post: Post }) {
+  const [_, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const currentUser = getAuthUser();
   const isMine = currentUser?.id === post.author.id;
 
-  const { mutate: like } = useLikePost();
-  const { mutate: unlike } = useUnlikePost();
-  const { mutate: deletePost } = useDeletePost();
+  const { mutate: like } = useLikePost({ request: authOptions().request });
+  const { mutate: unlike } = useUnlikePost({ request: authOptions().request });
+  const { mutate: deletePost } = useDeletePost({ request: authOptions().request });
 
   const handleLikeToggle = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
     const options = {
-      ...authOptions(),
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListPostsQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetFeedQueryKey() });
@@ -42,7 +42,6 @@ export function PostCard({ post }: { post: Post }) {
     if (!confirm("Delete this post?")) return;
     
     deletePost({ postId: post.id }, {
-      ...authOptions(),
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListPostsQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetFeedQueryKey() });
@@ -54,7 +53,13 @@ export function PostCard({ post }: { post: Post }) {
   };
 
   return (
-    <Link href={`/post/${post.id}`} className="block border-b border-border p-4 hover:bg-muted/20 transition-colors cursor-pointer group">
+    <div
+      role="link"
+      tabIndex={0}
+      onClick={() => setLocation(`/post/${post.id}`)}
+      onKeyDown={(e) => e.key === "Enter" && setLocation(`/post/${post.id}`)}
+      className="block border-b border-border p-4 hover:bg-muted/20 transition-colors cursor-pointer group"
+    >
       <div className="flex gap-4">
         <Link href={`/profile/${post.author.id}`} onClick={e => e.stopPropagation()} className="flex-shrink-0 relative z-10">
           <Avatar className="w-12 h-12 hover:opacity-80 transition-opacity">
@@ -66,7 +71,7 @@ export function PostCard({ post }: { post: Post }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm truncate">
-              <Link href={`/profile/${post.author.id}`} onClick={e => e.stopPropagation()} className="font-bold hover:underline relative z-10 truncate">
+              <Link href={`/profile/${post.author.id}`} onClick={(e) => { e.stopPropagation(); }} className="font-bold hover:underline relative z-10 truncate">
                 {post.author.first_name} {post.author.last_name}
               </Link>
               <span className="text-muted-foreground truncate">@{post.author.username}</span>
@@ -118,6 +123,6 @@ export function PostCard({ post }: { post: Post }) {
           </div>
         </div>
       </div>
-    </Link>
+    </div>
   );
 }

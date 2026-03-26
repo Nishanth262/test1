@@ -25,3 +25,19 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     res.status(401).json({ error: "Unauthorized", message: "Invalid or expired token" });
   }
 }
+
+export function optionalAuth(req: Request, _res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return next();
+  }
+
+  const token = authHeader.slice(7);
+  try {
+    req.user = verifyToken(token);
+  } catch {
+    // ignore invalid token and proceed as guest
+  }
+
+  next();
+}

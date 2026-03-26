@@ -37,4 +37,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/uploads", express.static(UPLOADS_DIR));
 app.use("/api", router);
 
+// Error handling middleware
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  logger.error({ err, message: err.message }, "Unhandled error");
+  res.status(500).json({ error: "Internal Server Error", message: err.message });
+});
+
 export default app;

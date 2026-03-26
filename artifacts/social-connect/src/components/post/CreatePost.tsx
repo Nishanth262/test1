@@ -18,7 +18,7 @@ export function CreatePost() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { mutate: create, isPending } = useCreatePost();
+  const { mutate: create, isPending } = useCreatePost({ request: authOptions().request });
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -44,7 +44,6 @@ export function CreatePost() {
     create(
       { data: { content, image: image || undefined } },
       {
-        ...authOptions(),
         onSuccess: () => {
           setContent("");
           clearImage();

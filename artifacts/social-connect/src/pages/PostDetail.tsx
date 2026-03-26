@@ -35,15 +35,14 @@ export default function PostDetail() {
   const { data: post, isLoading: postLoading } = useGetPost(postId, authOptions());
   const { data: commentsData, isLoading: commentsLoading } = useListComments(postId, { limit: 100 }, authOptions());
   
-  const { mutate: like } = useLikePost();
-  const { mutate: unlike } = useUnlikePost();
-  const { mutate: addComment, isPending: addingComment } = useAddComment();
-  const { mutate: deleteComment } = useDeleteComment();
+  const { mutate: like, isPending: liking } = useLikePost({ request: authOptions().request });
+  const { mutate: unlike, isPending: unliking } = useUnlikePost({ request: authOptions().request });
+  const { mutate: addComment, isPending: addingComment } = useAddComment({ request: authOptions().request });
+  const { mutate: deleteComment } = useDeleteComment({ request: authOptions().request });
 
   const handleLikeToggle = () => {
     if (!post) return;
     const opts = {
-      ...authOptions(),
       onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetPostQueryKey(postId) })
     };
     if (post.is_liked) unlike({ postId }, opts);
@@ -53,7 +52,6 @@ export default function PostDetail() {
   const handleReplySubmit = () => {
     if (!commentText.trim()) return;
     addComment({ postId, data: { content: commentText } }, {
-      ...authOptions(),
       onSuccess: () => {
         setCommentText("");
         queryClient.invalidateQueries({ queryKey: getListCommentsQueryKey(postId) });
@@ -65,7 +63,6 @@ export default function PostDetail() {
   const handleDeleteComment = (commentId: number) => {
     if (!confirm("Delete reply?")) return;
     deleteComment({ postId, commentId }, {
-      ...authOptions(),
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListCommentsQueryKey(postId) });
         queryClient.invalidateQueries({ queryKey: getGetPostQueryKey(postId) });
@@ -129,7 +126,8 @@ export default function PostDetail() {
               </button>
               <button 
                 onClick={handleLikeToggle}
-                className={`flex items-center justify-center p-2 rounded-full transition-colors ${post.is_liked ? 'text-destructive' : 'text-muted-foreground hover:bg-destructive/10 hover:text-destructive'}`}
+                disabled={liking || unliking}
+                className={`flex items-center justify-center p-2 rounded-full transition-colors ${post.is_liked ? 'text-destructive' : 'text-muted-foreground hover:bg-destructive/10 hover:text-destructive'} ${liking || unliking ? 'opacity-60 cursor-not-allowed' : ''}`}
               >
                 <Heart className={`w-6 h-6 ${post.is_liked ? 'fill-current' : ''}`} />
               </button>

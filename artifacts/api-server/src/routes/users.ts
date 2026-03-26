@@ -3,9 +3,10 @@ import multer from "multer";
 import path from "path";
 import crypto from "crypto";
 import { db, usersTable, followsTable } from "@workspace/db";
-import { eq, and, ne, sql } from "drizzle-orm";
+import { eq, and, ne, sql, inArray } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth.js";
 import { storeImage } from "../lib/imageStorage.js";
+import { asyncHandler } from "../lib/asyncHandler.js";
 
 const router: IRouter = Router();
 
@@ -42,7 +43,7 @@ function formatUser(user: typeof usersTable.$inferSelect, isFollowing = false) {
   };
 }
 
-router.get("/", requireAuth, async (req, res) => {
+router.get("/", requireAuth, asyncHandler(async (req, res) => {
   const page = Math.max(1, parseInt(String(req.query.page ?? "1")));
   const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "20"))));
   const offset = (page - 1) * limit;
@@ -60,7 +61,7 @@ router.get("/", requireAuth, async (req, res) => {
         .where(
           and(
             eq(followsTable.follower_id, currentUserId),
-            sql`${followsTable.following_id} = ANY(ARRAY[${sql.join(users.map((u) => sql`${u.id}`), sql`, `)}]::int[])`
+            inArray(followsTable.following_id, users.map((u) => u.id))
           )
         )
     : [];
@@ -75,9 +76,9 @@ router.get("/", requireAuth, async (req, res) => {
     limit,
     has_next: offset + users.length < total,
   });
-});
+}));
 
-router.patch("/me", requireAuth, async (req, res) => {
+router.patch("/me", requireAuth, asyncHandler(async (req, res) => {
   const { bio, avatar_url, website, location, first_name, last_name } = req.body;
 
   const updateData: Record<string, unknown> = { updated_at: new Date() };
@@ -101,9 +102,9 @@ router.patch("/me", requireAuth, async (req, res) => {
     .returning();
 
   res.json(formatUser(updated));
-});
+}));
 
-router.post("/me/avatar", requireAuth, upload.single("avatar"), async (req, res) => {
+router.post("/me/avatar", requireAuth, upload.single("avatar"), asyncHandler(async (req, res) => {
   if (!req.file) {
     res.status(400).json({ error: "Bad Request", message: "No image file provided" });
     return;
@@ -119,9 +120,9 @@ router.post("/me/avatar", requireAuth, upload.single("avatar"), async (req, res)
     .where(eq(usersTable.id, req.user!.userId));
 
   res.json({ avatar_url, message: "Avatar uploaded successfully" });
-});
+}));
 
-router.get("/:userId", requireAuth, async (req, res) => {
+router.get("/:userId", requireAuth, asyncHandler(async (req, res) => {
   const userId = parseInt(req.params.userId as string);
   if (isNaN(userId)) {
     res.status(400).json({ error: "Bad Request", message: "Invalid user ID" });
@@ -146,9 +147,9 @@ router.get("/:userId", requireAuth, async (req, res) => {
   }
 
   res.json(formatUser(user, isFollowing));
-});
+}));
 
-router.post("/:userId/follow", requireAuth, async (req, res) => {
+router.post("/:userId/follow", requireAuth, asyncHandler(async (req, res) => {
   const userId = parseInt(req.params.userId as string);
   const currentUserId = req.user!.userId;
 
@@ -187,9 +188,9 @@ router.post("/:userId/follow", requireAuth, async (req, res) => {
   ]);
 
   res.json({ message: "Followed successfully" });
-});
+}));
 
-router.delete("/:userId/follow", requireAuth, async (req, res) => {
+router.delete("/:userId/follow", requireAuth, asyncHandler(async (req, res) => {
   const userId = parseInt(req.params.userId as string);
   const currentUserId = req.user!.userId;
 
@@ -220,9 +221,9 @@ router.delete("/:userId/follow", requireAuth, async (req, res) => {
   ]);
 
   res.json({ message: "Unfollowed successfully" });
-});
+}));
 
-router.get("/:userId/followers", requireAuth, async (req, res) => {
+router.get("/:userId/followers", requireAuth, asyncHandler(async (req, res) => {
   const userId = parseInt(req.params.userId as string);
   const page = Math.max(1, parseInt(String(req.query.page ?? "1")));
   const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "20"))));
@@ -245,9 +246,9 @@ router.get("/:userId/followers", requireAuth, async (req, res) => {
     limit,
     has_next: false,
   });
-});
+}));
 
-router.get("/:userId/following", requireAuth, async (req, res) => {
+router.get("/:userId/following", requireAuth, asyncHandler(async (req, res) => {
   const userId = parseInt(req.params.userId as string);
   const page = Math.max(1, parseInt(String(req.query.page ?? "1")));
   const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "20"))));
@@ -270,6 +271,6 @@ router.get("/:userId/following", requireAuth, async (req, res) => {
     limit,
     has_next: false,
   });
-});
+}));
 
 export default router;
